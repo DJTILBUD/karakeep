@@ -1,0 +1,477 @@
+# Module: apps/web [AI]
+
+(part 1 of 12) Web application interface and server route handlers for the Karakeep bookmarking platform, providing dashboard navigation, article reader mode, administration tools, public bookmark lists, settings management, authentication flows, and API/export endpoints. (part 2 of 12) Provides frontend UI components for the web client, covering administrator management (user and invite management, background job inspection, service connection health, server statistics, bookmark pipeline debugging) and user dashboard controls (bulk bookmark actions, file/asset drag-and-drop uploads, problem reporting, keyboard shortcuts, view and sort options, and bookmark card layouts). (part 3 of 12) Provides dashboard UI components for viewing, managing, creating, and editing bookmarks (links, notes, and assets) across various responsive layouts (grid, masonry, list, compact), including bulk actions, tag and list management, and AI summarization. (part 4 of 12) Provides user interface components and hooks for the dashboard experience in apps/web, including bookmark cards, tag management, bookmark grid viewing, header navigation, highlight listing, and maintenance utilities like duplicate tag detection and merging. (part 5 of 12) Provides React dashboard UI components for managing bookmark lists (creation, editing, hierarchy, smart lists, sharing, RSS feeds, and collaborator permissions) and bookmark previewing/actions (actions bar, article reading metadata, asset viewers, attachments, and error states). (part 6 of 12) Provides preview and reader UI components for dashboard bookmarks, including article reader mode, media embeds (YouTube, X, TikTok, Instagram, Amazon), offline asset viewers (PDF, screenshots, HTML archives), text/note editing with auto-save, highlight management, reading progress tracking, and reader appearance customization. (part 7 of 12) Provides user interface components for the dashboard, rule engine configuration, search query exploration and execution, tag management, bookmark list navigation, and user invitation acceptance in the web application. (part 8 of 12) Provides user-facing web interface components for public bookmark lists and account/system settings pages including AI tagging/summarization preferences, API keys, automated backups, feed subscriptions, security, and data import/export workflows. (part 9 of 12) Provides user interface components for settings management, navigation sidebars, and authentication flows (sign-in, sign-up, password reset, and OAuth redirects) within the web application. (part 10 of 12) Provides reusable UI primitives, layout elements, markdown editing and rendering components, and client-side utility/subscription widgets for the web application. (part 11 of 12) Provides web application client-side state management, custom React hooks, auth client utilities, internationalization, provider hierarchies, and wrapped year-in-review modal components for Karakeep Web. (part 12 of 12) Provides server-side tRPC caller factories, query client caches, and authentication middleware via better-auth for the web application.
+
+_This module does not fit in one model call, so it was read in 12 parts and their summaries were combined without a further model call._
+
+## Key files
+- `apps/web/app/layout.tsx`: Root layout configuring metadata, fonts, viewport theme handling, and application-level React providers.
+- `apps/web/app/api/[[...route]]/route.ts`: Next.js catch-all route handler binding Hono and context middleware to mount the backend API (@karakeep/api).
+- `apps/web/app/api/auth/[...all]/route.tsx`: Authentication route handler delegating auth requests to the server auth framework.
+- `apps/web/app/api/bookmarks/export/route.tsx`: Endpoint for exporting bookmarks and lists in JSON or Netscape HTML formats directly from the database and tRPC clients.
+- `apps/web/app/dashboard/layout.tsx`: Main authenticated dashboard layout managing sidebar navigation, list hierarchies, search plugin integration, and user settings context.
+- `apps/web/app/reader/[bookmarkId]/page.tsx`: Dedicated distraction-free article reader interface with highlight controls, print views, and reading time estimation.
+- `apps/web/next.config.mjs`: Next.js configuration declaring standalone build output, Turbopack/Webpack SVG loaders, CORS headers for /api/*, and bundle analyzer settings.
+- `apps/web/components/admin/BookmarkDebugger.tsx`: Admin tool for inspecting bookmark processing state and triggering manual re-crawl, re-index, embedding regeneration, re-tagging, and re-summarization tasks.
+- `apps/web/components/admin/UserList.tsx`: Admin table for viewing users and their quota/storage stats, opening modal workflows for user creation, editing, password resets, and deletions.
+- `apps/web/components/admin/BackgroundJobs.tsx`: Admin interface for monitoring queue statuses (queued, unprocessed, failed) and executing operational background maintenance actions.
+- `apps/web/components/admin/ServiceConnections.tsx`: Admin status board showing connectivity to search engines, headless browser instances, queue systems, and vector stores.
+- `apps/web/components/dashboard/BulkBookmarksAction.tsx`: Floating action bar and modal triggers for batch operations on selected bookmarks (favoriting, archiving, re-crawling, list assignment, tagging, and deletion).
+- `apps/web/components/dashboard/UploadDropzone.tsx`: Full-screen dropzone overlay and upload hook that converts dropped files (images, PDFs, markdown text) into asset or text bookmarks.
+- `apps/web/components/dashboard/ReportProblemDialog.tsx`: User feedback dialog capturing user problem descriptions along with client runtime and browser diagnostic data.
+- `apps/web/components/dashboard/bookmarks/AssetCard.tsx`: Bookmark presentation card displaying image previews or PDF screenshot fallbacks.
+- `apps/web/components/dashboard/bookmarks/Bookmarks.tsx`: Server component that verifies authentication, fetches bookmarks via the server API client, and renders the updatable bookmarks grid.
+- `apps/web/components/dashboard/bookmarks/BookmarksGrid.tsx`: Renders responsive masonry and grid layouts of bookmarks with keyboard navigation, bulk selection integration, and infinite scroll pagination.
+- `apps/web/components/dashboard/bookmarks/BookmarkCard.tsx`: Polymorphic bookmark card wrapper that fetches real-time updates and dispatches rendering based on bookmark content type (link, text, asset, unknown).
+- `apps/web/components/dashboard/bookmarks/LinkCard.tsx`: Card component for link bookmarks featuring preview/original link redirection, image/favicon display, crawling status, and footer metadata.
+- `apps/web/components/dashboard/bookmarks/EditorCard.tsx`: Quick-entry card for creating new text notes, importing single or multiple URLs, and uploading pasted image assets.
+- `apps/web/components/dashboard/bookmarks/BookmarkOptions.tsx`: Contextual action dropdown and mobile bottom sheet for bookmark actions (editing, tagging, list management, archiving, recrawling, deletion).
+- `apps/web/components/dashboard/bookmarks/EditBookmarkDialog.tsx`: Form dialog for modifying bookmark metadata including title, link URL, notes, tags, published dates, and asset content.
+- `apps/web/components/dashboard/bookmarks/BulkTagModal.tsx`: Dialog for concurrently attaching and detaching tags across multiple selected bookmarks.
+- `apps/web/components/dashboard/bookmarks/BulkManageListsModal.tsx`: Form dialog for adding multiple bookmarks to a designated manual list with concurrency limits.
+- `apps/web/components/dashboard/bookmarks/ManageListsModal.tsx`: Modal for searching and toggling bookmark membership in manual lists with optimistic query updates.
+- `apps/web/components/dashboard/bookmarks/SummarizeBookmarkArea.tsx`: Sidebar/preview component for viewing, creating, resummarizing, or deleting AI-generated markdown summaries for link bookmarks.
+- `apps/web/components/dashboard/bookmarks/TagModal.tsx`: Modal dialog wrapper for editing and managing tags on a bookmark with automatic input focus handling.
+- `apps/web/components/dashboard/bookmarks/TagsEditor.tsx`: Combobox and tag management component supporting creation, attaching, detaching, and optimistic updates of tags.
+- `apps/web/components/dashboard/bookmarks/TextCard.tsx`: Card display component for note/text-type bookmarks supporting adaptive layouts and expandable clamped text.
+- `apps/web/components/dashboard/bookmarks/UnknownCard.tsx`: Fallback card UI rendered when an unrecognized or erroneous bookmark type is encountered.
+- `apps/web/components/dashboard/bookmarks/UpdatableBookmarksGrid.tsx`: Infinite-scrolling bookmark grid container with sorting and dropzone support.
+- `apps/web/components/dashboard/bookmarks/icons.tsx`: Action icons, selection checkboxes, and CSS class constants for bookmark cards.
+- `apps/web/components/dashboard/bookmarks/useArchiveBookmarkWithUndo.ts`: Mutation hook for archiving/restoring bookmarks with undo support via Sonner toast notifications.
+- `apps/web/components/dashboard/cleanups/TagDuplicationDetention.tsx`: Cleanup dashboard tool detecting duplicate or similar tags using Levenshtein distance and executing tag merges.
+- `apps/web/components/dashboard/feeds/FeedSelector.tsx`: Dropdown select component for choosing from user feeds via tRPC.
+- `apps/web/components/dashboard/header/Header.tsx`: Dashboard navigation header providing authentication redirects, search bar, branding, and global actions.
+- `apps/web/components/dashboard/header/ProfileOptions.tsx`: User profile dropdown menu with theme switching, shortcut modals, problem reporting, and external documentation links.
+- `apps/web/components/dashboard/header/toolbarButton.ts`: Shared CSS utility classes for toolbar buttons, bottom sheets, and indicator dots.
+- `apps/web/components/dashboard/highlights/AllHighlights.tsx`: Dashboard view for viewing, filtering by color, and searching across saved highlights.
+- `apps/web/components/dashboard/highlights/HighlightCard.tsx`: Component rendering an individual highlight quote, note, color border, and delete action.
+- `apps/web/components/dashboard/highlights/useDeleteHighlightWithUndo.ts`: Mutation hook for deleting a highlight with toast-based undo recreation.
+- `apps/web/components/dashboard/lists/AllListsView.tsx`: Main dashboard view rendering pinned, owned, and shared bookmark lists.
+- `apps/web/components/dashboard/lists/EditListModal.tsx`: Dialog form for creating and editing manual or smart bookmark lists with icon picking, nesting, and query builder integration.
+- `apps/web/components/dashboard/lists/SmartListQueryBuilder.tsx`: Visual builder component generating query strings (filters by tags, age, title, and flags) for smart bookmark lists.
+- `apps/web/components/dashboard/lists/ManageCollaboratorsModal.tsx`: Modal for managing list collaboration access, invitations, and collaborator roles.
+- `apps/web/components/dashboard/lists/ListOptions.tsx`: Action dropdown for list management operations like editing, sharing, merging, deleting, or leaving.
+- `apps/web/components/dashboard/preview/ActionBar.tsx`: Preview action bar for bookmark operations including editing details, favoriting, archiving, and extended options.
+- `apps/web/components/dashboard/preview/AssetContentSection.tsx`: Asset content viewer supporting image rendering and embedded PDF viewing with screenshot fallbacks.
+- `apps/web/components/dashboard/preview/AttachmentBox.tsx`: Collapsible sidebar component for viewing, uploading, detaching, and replacing bookmark file and banner image attachments.
+- `apps/web/components/dashboard/preview/BookmarkPreview.tsx`: Main dashboard preview container orchestrating metadata, actions, sidebar details, and content view switching for saved bookmarks.
+- `apps/web/components/dashboard/preview/LinkContentSection.tsx`: Determines and displays the appropriate link preview format (reader view, custom embed renderer, full page archive, PDF, screenshot, or video).
+- `apps/web/components/dashboard/preview/ReaderView.tsx`: Full-text reader view handling HTML caching, reading progress persistence, and text highlight creation/updating/navigation.
+- `apps/web/components/dashboard/preview/ReaderSettingsPopover.tsx`: Popover interface for configuring reader appearance settings such as font family, font size, and line height with device/session/server persistence.
+- `apps/web/components/dashboard/preview/LinkViewMenu.tsx`: Dropdown control to toggle preview modalities (reader, overview, screenshots, archives, video, custom renderers) and trigger offline asset downloads.
+- `apps/web/components/dashboard/preview/useNoteDraft.ts`: Custom hook providing debounced auto-save, unmount flush, error recovery, and query cache synchronization for bookmark notes.
+- `apps/web/components/dashboard/preview/usePreviewNavigation.ts`: Keyboard ('j'/'k') and router navigation hook for stepping through bookmarks from the underlying grid while managing focus.
+- `apps/web/components/dashboard/preview/content-renderers/registry.ts`: Registry for content-specific URL renderers (Amazon, Instagram, TikTok, X/Twitter, YouTube).
+- `apps/web/components/dashboard/rules/RuleEngineActionBuilder.tsx`: UI builder for configuring rule actions such as adding/removing tags, managing list membership, favouriting, archiving, and page downloading.
+- `apps/web/components/dashboard/rules/RuleEngineConditionBuilder.tsx`: UI builder for recursive and nested conditions (URL match, tag presence, title, source, type) in automation rules.
+- `apps/web/components/dashboard/rules/RuleEngineEventSelector.tsx`: Selector component for rule engine triggers (bookmark added, tag added/removed, list events, etc.).
+- `apps/web/components/dashboard/rules/RuleEngineRuleEditor.tsx`: Composite form for editing and persisting complete automation rules.
+- `apps/web/components/dashboard/rules/RuleEngineRuleList.tsx`: Displays user rules with status toggles, deletion dialogs, and edit triggers.
+- `apps/web/components/dashboard/search/QueryExplainerTooltip.tsx`: Tooltip and table explaining parsed structured search query expressions and matchers.
+- `apps/web/components/dashboard/search/SearchInput.tsx`: Main dashboard search bar component supporting debounced search, IME compositions, query autocomplete, mode selection, and keyboard navigation.
+- `apps/web/components/dashboard/search/SearchModeSelector.tsx`: Dropdown to select between full-text search (fts), hybrid, and semantic search modes.
+- `apps/web/components/dashboard/search/useSearchAutocomplete.ts`: Hook computing query autocomplete suggestions including search history, tokens, qualifiers, and tags.
+- `apps/web/components/dashboard/sidebar/AllLists.tsx`: Sidebar tree rendering bookmark lists with drag-and-drop support for bookmark assignments.
+- `apps/web/components/dashboard/sidebar/InvitationNotificationBadge.tsx`: Queries and displays count badge for pending list invitations.
+- `apps/web/components/dashboard/tags/AllTagsView.tsx`: Full dashboard view organizing tags by attachment source (human, AI, unused/none) with sorting, filtering, and bulk operations.
+- `apps/web/components/dashboard/tags/BulkTagAction.tsx`: Controls and concurrency-limited bulk deletion for selected tags.
+- `apps/web/components/dashboard/tags/CreateTagModal.tsx`: Modal form for creating a new tag.
+- `apps/web/components/dashboard/tags/DeleteTagConfirmationDialog.tsx`: Confirmation modal for deleting an individual tag.
+- `apps/web/components/dashboard/tags/EditableTagName.tsx`: Inline editing component for tag names.
+- `apps/web/components/dashboard/tags/MergeTagModal.tsx`: Modal for merging one tag's bookmarks into another destination tag.
+- `apps/web/components/dashboard/tags/MultiTagSelector.tsx`: Selectable tag pill used in bulk tag management modes.
+- `apps/web/components/dashboard/tags/RenameTagModal.tsx`: Dialog for renaming existing tags.
+- `apps/web/components/dashboard/tags/TagAutocomplete.tsx`: Combobox and multi-picker for selecting tags by autocomplete.
+- `apps/web/components/dashboard/tags/TagHeader.tsx`: Header display for tag detail views displaying item counts and breakdowns by human vs AI attachment.
+- `apps/web/components/dashboard/tags/TagOptions.tsx`: Dropdown menu offering actions for renaming, merging, toggling archived status, and deleting tags.
+- `apps/web/components/dashboard/tags/TagPill.tsx`: Draggable and clickable tag pill supporting drag-and-drop merge operations.
+- `apps/web/components/invite/InviteAcceptForm.tsx`: Form for validating invite tokens, entering user details/passwords, accepting workspace invitations, and authenticating.
+- `apps/web/components/public/lists/PublicBookmarkGrid.tsx`: Renders an infinite-scrolling masonry grid of public bookmarks with support for links, text notes, and media assets.
+- `apps/web/components/public/lists/PublicListHeader.tsx`: Displays header metadata, creator information, and RSS feed links for public bookmark lists.
+- `apps/web/components/settings/AISettings.tsx`: Manages AI inference preferences including auto-tagging, auto-summarization, inference language, tag styles, and custom prompts.
+- `apps/web/components/settings/ApiKeySettings.tsx`: Renders the API key management interface for viewing, creating, scoping, regenerating, and revoking API keys.
+- `apps/web/components/settings/AddApiKey.tsx`: Dialog modal and form allowing users to create API keys with full access or granular read/write permissions.
+- `apps/web/components/settings/BackupSettings.tsx`: Configures automated backup settings such as frequency and retention, and displays backup execution history.
+- `apps/web/components/settings/ChangePassword.tsx`: Form component for updating user passwords.
+- `apps/web/components/settings/DeleteAccount.tsx`: Confirmation dialog and form handling permanent user account deletion.
+- `apps/web/components/settings/FeedSettings.tsx`: Manages external RSS/Atom feed subscriptions with automated ingestion and tag import options.
+- `apps/web/components/settings/ImportExport.tsx`: Handles bulk bookmark export (JSON, Netscape) and file imports across various supported bookmark managers.
+- `apps/web/components/settings/ImportSessionCard.tsx`: Renders a status card detailing active or completed bookmark import sessions.
+- `apps/web/components/settings/ImportSessionDetail.tsx`: Displays detailed progress, filterable result lists, and control actions for a specific import session.
+- `apps/web/components/settings/SettingsPage.tsx`: Standard layout primitives (SettingsPage, SettingsSection, SettingsRow, SettingsRows) enforcing consistent sizing and alignment across settings views.
+- `apps/web/components/settings/settingsNav.tsx`: Defines navigation section groupings and paths for account, preferences, data, and automation settings.
+- `apps/web/components/settings/SavedHint.tsx`: Hooks and visual indicators (useSavedField, useAutosavedSettings, SavedHint) providing optimistic feedback and rollback on autosaved preferences.
+- `apps/web/components/settings/SubscriptionSettings.tsx`: Subscription management component supporting Stripe checkout/portal sessions and in-app purchase status.
+- `apps/web/components/settings/WebhookSettings.tsx`: Webhook management interface including webhook creation and editing dialogs.
+- `apps/web/components/settings/apiKeyScopes.ts`: Definitions and helpers for API key permission scopes and resource translations.
+- `apps/web/components/shared/sidebar/SidebarLayout.tsx`: Main dashboard and settings shell rendering desktop/mobile sidebars, header, error boundary, and demo banner.
+- `apps/web/components/signin/SignInForm.tsx`: Sign-in card supporting credentials authentication, demo credentials, and OAuth provider buttons with auto-redirect.
+- `apps/web/components/signup/SignUpForm.tsx`: User registration form handling email/password creation, Cloudflare Turnstile verification, and redirect routing.
+- `apps/web/components/ui/markdown/markdown-editor.tsx`: Rich text and raw markdown editor built on Lexical with support for syntax highlighting, markdown shortcuts, and draft change notifications.
+- `apps/web/components/ui/markdown/markdown-readonly.tsx`: Read-only markdown renderer using react-markdown and Prism syntax highlighting with interactive task list checkbox toggle support.
+- `apps/web/components/ui/form.tsx`: React Hook Form integration primitives and custom validation error mapping for schema/server errors.
+- `apps/web/components/ui/dialog.tsx`: Responsive modal dialog components built on Radix UI dialog primitives with focus management and phone-sheet styling.
+- `apps/web/components/subscription/QuotaProgress.tsx`: Displays user subscription usage quotas for saved bookmarks and asset file storage via tRPC.
+- `apps/web/components/utils/ValidAccountCheck.tsx`: Client component that verifies session validity via tRPC whoami and redirects unauthorized users to logout.
+- `apps/web/lib/providers.tsx`: Root client providers tree configuring tRPC, React Query, ClientConfig, Better-Auth session, theme, and internationalization.
+- `apps/web/lib/auth/client.ts`: Client-side auth client integration via better-auth, exposing session providers, hooks, and auth action helpers (signIn, signOut, signUp).
+- `apps/web/lib/hooks/bookmark-search.ts`: Hooks managing search state, search mode parsing (FTS, semantic, hybrid), query debouncing, and infinite query pagination for bookmark search.
+- `apps/web/lib/hooks/useBookmarkBulkActions.ts`: Mutation hook managing concurrent bulk updates, favorites, archiving, deletions, recrawls, and list removals for selected bookmarks.
+- `apps/web/lib/hooks/useBookmarkKeyboardNavigation.ts`: Keyboard hotkey management (Vim-style navigation, bulk select, preview opening, and action triggers) for the bookmark grid.
+- `apps/web/components/wrapped/WrappedModal.tsx`: Full-screen modal displaying year-in-review bookmark statistics with image export and social sharing capabilities.
+- `apps/web/lib/userLocalSettings/userLocalSettings.ts`: Server actions for reading and persisting user local display settings (grid layout, columns, language, visibility) via cookies.
+- `apps/web/lib/bulkActions.ts`: Zustand store managing bulk selection state and visible bookmark context.
+- `apps/web/server/api/client.ts`: Creates request context supporting Bearer API key authentication or cookie sessions and exports server tRPC caller instances.
+- `apps/web/server/api/trpc.ts`: Provides cached React Query QueryClient and tRPC options proxy for server-side operations.
+- `apps/web/server/auth.ts`: Configures better-auth with Drizzle adapter, rate limiting, origin validation, Turnstile verification, and user signup/signin policies.
+- `apps/web/server/auth.test.ts`: Integration tests for auth endpoints covering signup, credential creation, rate limiting, and password hashing compatibility.
+
+## Public interface
+- GET/POST/PATCH/DELETE/OPTIONS/PUT /api/[[...route]]
+- GET/POST /api/auth/[...all]
+- GET /api/bookmarks/export
+- GET/HEAD /.well-known/api-catalog
+- GET /.well-known/change-password
+- GET /.well-known/security.txt
+- Web App Pages: /dashboard (bookmarks, archive, favourites, feeds, highlights, lists, preview, search, tags), /reader/[bookmarkId], /public/lists/[listId], /admin/*, /settings/*, /signin, /signup, /logout, /invite/[token], /forgot-password, /reset-password, /verify-email, /check-email
+- default function AddUserDialog({ children }: { children?: React.ReactNode })
+- export function AdminCard({ className, children }: { className?: string, children: React.ReactNode })
+- export const ADMIN_HOME = '/admin/overview'
+- export function adminNavGroups(t: TFunction): SectionNavGroup[]
+- export function AdminNotices()
+- export function AdminNoticeBadge()
+- export default async function AdminsOnly()
+- export default function BasicStats()
+- export default function BookmarkDebugger()
+- export default function CreateInviteDialog({ children }: CreateInviteDialogProps)
+- export default function InvitesList()
+- export default function InvitesListSkeleton()
+- export default function ResetPasswordDialog(props: ResetPasswordDialogProps)
+- export default function ServiceConnections()
+- export default function UpdateUserDialog(props: UpdateUserDialogProps)
+- export default function UsersSection()
+- export default function UserListSkeleton()
+- export default function BulkBookmarksAction()
+- export function EditableText(props: { viewClassName?: string; untitledClassName?: string; editClassName?: string; originalText: string | null; onSave: (title: string | null) => void; isSaving: boolean; })
+- export default function ErrorFallback()
+- export default function GlobalActions()
+- export default function KeyboardShortcutsDialog({ open, setOpen }: { open: boolean; setOpen: (open: boolean) => void })
+- export default function ReportProblemDialog()
+- export default function SortOrderToggle()
+- export function useUploadAsset()
+- export default function UploadDropzone({ children }: { children: React.ReactNode })
+- export default function ViewOptions()
+- export default function AssetCard({ bookmark, className, bookmarkIndex }: { bookmark: ZBookmarkTypeAsset; className?: string; bookmarkIndex?: number })
+- Bookmarks
+- BookmarksGrid
+- BookmarkGridItem
+- BookmarkCard
+- BookmarksGridSkeleton
+- BookmarkActionBar
+- FavouriteButton
+- BookmarkFavicon
+- BookmarkFormattedCreatedAt
+- BookmarkMarkdownComponent
+- BookmarkOptions
+- BookmarkOwnerIcon
+- BookmarkTagsEditor
+- BookmarkedTextEditor
+- BulkManageListsModal
+- BulkTagModal
+- CardImage
+- DeleteBookmarkConfirmationDialog
+- BulkDeleteDescription
+- EditBookmarkDialog
+- EditorCard
+- FooterLinkURL
+- getDisplayDomain
+- LinkCard
+- ManageListsModal
+- useManageListsModal
+- NoBookmarksBanner
+- NotePreview
+- SummarizeBookmarkArea
+- TagList
+- export default function TagModal({ bookmark, open, setOpen }: { bookmark: ZBookmark; open: boolean; setOpen: (open: boolean) => void; })
+- export function useTagModal(bookmark: ZBookmark): { open: boolean; setOpen: (open: boolean) => void; content: React.ReactNode; }
+- export function useFocusTagInputOnOpen(): { ref: React.RefObject<HTMLDivElement | null>; onOpenAutoFocus: (e: Event) => void; }
+- export function TagsEditor(props: { tags: ZBookmarkTags[]; onAttach: (tag: { tagName: string; tagId?: string }) => void; onDetach: (tag: { tagName: string; tagId: string }) => void; disabled?: boolean; allowCreation?: boolean; placeholder?: string; variant?: 'field' | 'inline'; addOnly?: boolean; })
+- export default function TextCard({ bookmark, className, bookmarkIndex }: { bookmark: ZBookmarkTypeText; className?: string; bookmarkIndex?: number; })
+- export default function UnknownCard({ bookmark, className, bookmarkIndex }: { bookmark: ZBookmark; className?: string; bookmarkIndex?: number; })
+- export default function UpdatableBookmarksGrid({ query, bookmarks, showEditorCard, itemsPerPage }: { query: Omit<ZGetBookmarksRequest, 'sortOrder' | 'includeContent'>; bookmarks: ZGetBookmarksResponse; showEditorCard?: boolean; itemsPerPage?: number; })
+- export function SelectionCheckbox({ checked }: { checked: boolean })
+- export function FavouritedActionIcon({ favourited, className, size, strokeWidth }: { favourited: boolean; className?: string; size?: number; strokeWidth?: number; })
+- export function ArchivedActionIcon({ archived, className, size, strokeWidth }: { archived: boolean; className?: string; size?: number; strokeWidth?: number; })
+- export function useArchiveBookmarkWithUndo(options?: { onDone?: () => void })
+- export function TagDuplicationDetection()
+- export function FeedSelector({ value, onChange, placeholder, className }: { className?: string; value?: string | null; onChange: (value: string) => void; placeholder?: string; })
+- export default function Header(): Promise<JSX.Element>
+- export default function SidebarProfileOptions()
+- export default function AllHighlights({ highlights }: { highlights: ZGetAllHighlightsResponse })
+- export default function HighlightCard(props: { highlight: ZHighlight; clickable: boolean; href?: string; className?: string; readOnly: boolean; meta?: React.ReactNode; })
+- export function useDeleteHighlightWithUndo()
+- AllListsView
+- CollapsibleBookmarkLists
+- EditListModal
+- DeleteListConfirmationDialog
+- LeaveListConfirmationDialog
+- ListHeader
+- ListOptions
+- ManageCollaboratorsModal
+- MergeListModal
+- NewListButton
+- PendingInvitationsCard
+- ShareListModal
+- SmartListPreview
+- SmartListQueryBuilder
+- ActionBar
+- ArticleTitleBlock
+- AssetContentSection
+- AttachmentBox
+- BookmarkListsField
+- BookmarkLoadError
+- useLinkSection(bookmark: ZBookmark): { section: string, setSection: (section: string) => void, availableRenderers: ContentRenderer[] }
+- usePreviewDialog(): PreviewDialog
+- useNoteDraft(bookmarkId: string, savedNote: string): { value: string, status: 'idle' | 'saving' | 'saved' | 'failed', flush: () => void, onChange: (note: string) => void }
+- usePreviewNavigation({ bookmarkId: string, containerRef: RefObject<HTMLElement | null> }): { placeholder: ZBookmark | undefined, restoresFocusOnClose: () => boolean, navigation: PreviewNavigation | undefined }
+- contentRendererRegistry: ContentRendererRegistry
+- flashHighlight(highlightId: string): void
+- readerColumnWidth(fontFamily: ZReaderFontFamily): string
+- SavedPageOverview({ link, title, onSelectSection }: { link: ZBookmarkedLink, title?: string | null, onSelectSection: (section: string) => void }): JSX.Element
+- ReaderView(props: { bookmarkId: string, className?: string, style?: CSSProperties, readOnly: boolean, progressBarStyle?: CSSProperties, progressBarClassName?: string, progressBarAlwaysVisible?: boolean }): JSX.Element
+- TextContentSection({ bookmark, readOnly }: { bookmark: ZBookmark, readOnly: boolean }): JSX.Element
+- ReaderSettingsPopover(props: ReaderSettingsPopoverProps): JSX.Element
+- ActionBuilder
+- ConditionBuilder
+- EventSelector
+- RuleEditor
+- RuleList
+- QueryExplainerTooltip
+- SearchInput
+- SearchModeSelector
+- useSearchAutocomplete
+- AllLists
+- InvitationNotificationBadge
+- AllTagsView
+- BulkTagAction
+- CreateTagModal
+- DeleteTagConfirmationDialog
+- EditableTagName
+- MergeTagModal
+- MultiTagSelector
+- RenameTagModal
+- TagAutocomplete
+- TagNamePicker
+- TagHeader
+- TagOptions
+- TagPill
+- InviteAcceptForm
+- default PublicBookmarkGrid({ bookmarks, nextCursor, list })
+- default PublicListHeader({ list })
+- AIPreferences()
+- TagStyleSelector()
+- default ApiKeys({ isAdmin, keys })
+- default ApiKeyRowActions({ name, id })
+- default ApiKeySuccess({ apiKey, note })
+- default DeleteApiKey({ name, id, open, setOpen })
+- ChangePassword()
+- DeleteAccount()
+- FeedsEditorDialog()
+- EditFeedDialog({ feed, open, setOpen })
+- ImportSessionCard({ session })
+- default ImportSessionDetail({ sessionId })
+- SettingsPage({ title, description, action, children })
+- SettingsSection({ id, title, count, description, action, children })
+- SettingsRow({ label, description, hint, inline, children })
+- SettingsRows({ children })
+- SaveBar({ saving, saveLabel, onDiscard })
+- SavedHint({ show, failed })
+- useSavedField()
+- useAutosavedSettings()
+- settingsNavGroups(t)
+- RowActionsMenu({ items, label, disabledReason, className })
+- RowIconButton
+- SectionIndex({ title, groups, desktopPath })
+- SectionMobileBar({ indexPath, indexLabel, backToAppLabel })
+- SidebarLayout({ children, mobileSidebar, sidebar, modal })
+- SignInForm({ redirectUrl })
+- SignUpForm({ redirectUrl })
+- ForgotPasswordForm()
+- ResetPasswordForm({ token })
+- QuotaProgress()
+- MarkdownEditor({ children, onSave, onCancel, isSaving, onDraftChange })
+- MarkdownReadonly({ children, className, onSave, skipHtml })
+- ActionButton, ActionButtonWithTooltip
+- ActionConfirmingDialog({ title, description, actionButton, children, ... })
+- PageHeader({ title, description, icon, meta, actions, className })
+- StatTile({ label, value, icon, action, helper, loading, href, onClick, pressed, className })
+- UserAvatar({ image, name, className, imgClassName, fallbackClassName, fallback })
+- useShowArchived()
+- ValidAccountCheck()
+- Providers
+- SessionProvider
+- useSession
+- signIn
+- signOut
+- signUp
+- useBookmarkSearch
+- useBookmarkSearchState
+- useDoBookmarkSearch
+- useBookmarkBulkMutations
+- useBookmarkKeyboardNavigation
+- useBookmarkImport
+- WrappedModal
+- WrappedContent
+- ShareButton
+- getUserLocalSettings
+- updateBookmarksLayout
+- updateGridColumns
+- updateShowNotes
+- updateShowTags
+- updateShowTitle
+- updateImageFit
+- createContextFromRequest(req: Request)
+- createContext(database?: typeof db, ip?: string | null): Promise<Context>
+- api
+- createTrcpClientFromCtx
+- getQueryClient()
+- serverTrpc
+- AuthSession
+
+## Dependencies
+- @karakeep/api
+- @karakeep/db
+- @karakeep/shared
+- @karakeep/shared-react
+- @karakeep/shared-server
+- @karakeep/tailwind-config
+- @karakeep/trpc
+- @tanstack/react-query
+- drizzle-orm
+- hono
+- i18next
+- lucide-react
+- next
+- next-themes
+- nuqs
+- react
+- zod
+- @hookform/resolvers/zod
+- @karakeep/shared-react/hooks/bookmarks
+- @karakeep/shared-react/trpc
+- @karakeep/shared/types/admin
+- @karakeep/shared/types/bookmarks
+- @karakeep/shared/types/problemReports
+- @karakeep/shared/utils/assetUtils
+- @karakeep/shared/utils/bookmarkUtils
+- @trpc/client
+- date-fns
+- react-dom
+- react-dropzone
+- react-hook-form
+- sonner
+- @karakeep/shared/types/lists
+- @karakeep/shared/types/tags
+- @karakeep/shared/utils/listUtils
+- @karakeep/shared/utils/switch
+- @karakeep/shared/concurrency
+- @karakeep/shared-react/hooks/assets
+- @karakeep/shared-react/hooks/lists
+- @karakeep/shared-react/hooks/bookmark-list-context
+- @karakeep/shared-react/hooks/bookmark-grid-context
+- react-masonry-css
+- react-intersection-observer
+- react-hotkeys-hook
+- react-error-boundary
+- next/link
+- next/image
+- next/navigation
+- @radix-ui/react-popover
+- cmdk
+- fastest-levenshtein
+- react-i18next
+- @emoji-mart/data
+- @emoji-mart/react
+- @karakeep/shared-react/components/BookmarkHtmlHighlighter
+- @karakeep/shared-react/components/ScrollProgressTracker
+- @karakeep/shared-react/components/highlights
+- @karakeep/shared-react/hooks/highlights
+- @karakeep/shared-react/hooks/reading-progress
+- @karakeep/shared/types/readers
+- @karakeep/shared/types/users
+- @karakeep/shared/utils/reading-progress-dom
+- react-tweet
+- react-draggable
+- @karakeep/shared/types/rules
+- @karakeep/shared/types/search
+- @karakeep/shared/searchQueryParser
+- @karakeep/shared/utils/tag
+- @karakeep/shared-react/hooks/rules
+- @karakeep/shared-react/hooks/tags
+- @karakeep/shared-react/hooks/search-history
+- @karakeep/shared-react/hooks/use-debounce
+- tailwindcss
+- @karakeep/shared-react/hooks/users
+- @karakeep/shared/config
+- @karakeep/shared/langs
+- @karakeep/shared/types/apiKeys
+- @karakeep/shared/types/webhooks
+- @karakeep/shared/utils/redirectUrl
+- @marsidev/react-turnstile
+- @karakeep/shared-react/components/ui/button
+- @karakeep/shared-react/components/ui/popover
+- @karakeep/shared-react/components/ui/textarea
+- @radix-ui/react-avatar
+- @radix-ui/react-collapsible
+- @radix-ui/react-dialog
+- @radix-ui/react-dropdown-menu
+- @radix-ui/react-progress
+- @radix-ui/react-radio-group
+- @radix-ui/react-scroll-area
+- @radix-ui/react-select
+- @radix-ui/react-separator
+- @radix-ui/react-slider
+- @radix-ui/react-switch
+- @radix-ui/react-tabs
+- @radix-ui/react-toast
+- @radix-ui/react-toggle
+- @radix-ui/react-tooltip
+- @lexical/react
+- lexical
+- react-day-picker
+- react-markdown
+- react-syntax-highlighter
+- better-auth
+- modern-screenshot
+- superjson
+- zustand
+- @karakeep/db/schema
+- @karakeep/db/drizzle
+- @karakeep/trpc/auth
+- @karakeep/trpc/routers/_app
+- @karakeep/trpc/email
+- @karakeep/trpc/lib/turnstile
+- @karakeep/shared/ratelimiting
+- @karakeep/shared/readOnlyMode
+- @karakeep/shared/utils/userName
+- @trpc/tanstack-react-query
+- @paralleldrive/cuid2
+- next/headers
+- request-ip
+- bcryptjs
+- vitest
+
+## AI touchpoints [AI]
+- `apps/web/components/settings/AISettings.tsx`
+- `apps/web/app/settings/ai/page.tsx`
+- `apps/web/components/admin/BookmarkDebugger.tsx`
+- `apps/web/components/dashboard/bookmarks/SummarizeBookmarkArea.tsx`
+- `apps/web/components/dashboard/bookmarks/TagsEditor.tsx`
+- `apps/web/components/dashboard/tags/AllTagsView.tsx`
+- `apps/web/components/dashboard/tags/TagHeader.tsx`
+- `apps/web/components/dashboard/search/SearchModeSelector.tsx`
+- `apps/web/components/settings/settingsNav.tsx`
+- `apps/web/components/settings/apiKeyScopes.ts`
+
+## Open questions
+- When will the Bearer API key authentication mechanism in createContextFromRequest be replaced with a formal REST API as indicated by the inline TODO?
