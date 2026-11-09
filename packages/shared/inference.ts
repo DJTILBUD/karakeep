@@ -6,6 +6,7 @@ import { z } from "zod";
 import serverConfig from "./config";
 import { createCustomFetch } from "./customFetch";
 import logger from "./logger";
+import { withEval } from '../../evaluation/report.js';
 
 export interface InferenceResponse {
   response: string;
@@ -190,7 +191,7 @@ export interface OpenAIEmbeddingConfig {
 }
 
 const buildOpenAIClient = (config: OpenAIEmbeddingConfig) =>
-  new OpenAI({
+  withEval(new OpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
     timeout:
@@ -205,7 +206,7 @@ const buildOpenAIClient = (config: OpenAIEmbeddingConfig) =>
         : OpenAI.DEFAULT_TIMEOUT,
       config.proxyUrl,
     ),
-  });
+  }));
 
 export class InferenceClientFactory {
   static build(): InferenceClient | null {

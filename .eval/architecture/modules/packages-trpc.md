@@ -1,0 +1,250 @@
+# Module: packages/trpc [AI]
+
+(part 1 of 7) Provides domain models, authentication/authorization helpers, middleware (tracing, rate limiting, event logging), search query building, and subscription/rule processing utilities supporting the tRPC API layer for managing bookmarks, assets, RSS feeds, backups, and user quotas. (part 2 of 7) Implements core backend business logic, repository/service layers, data models, authentication handlers, email notifications, and tRPC procedure middleware for the self-hosted bookmarking app (managing highlights, lists, tags, users, webhooks, import sessions, and rule engine rules). (part 3 of 7) Provides the tRPC API routers, procedures, middleware, and Prometheus metrics for the Karakeep backend, handling bookmark management, search queries, asset attachments, backups, scoped API keys, and admin queue triggers for background crawling, AI inference, and embedding generation. (part 4 of 7) Provides tRPC API routers and middleware for managing bookmarks (links, text, assets), readable content extraction, RSS feed subscriptions, text highlights, import sessions, and client configuration, orchestrating background queues for crawling, AI tagging, embeddings, and full-text/vector search. (part 5 of 7) Defines tRPC routers, procedures, and access-control middleware for import sessions, user invitations, list management and collaboration, problem reports, custom AI prompts, public list and bookmark viewing, and automated bookmark rules. (part 6 of 7) Provides tests and validation for tRPC API routers, including shared list collaboration and subscription management across Stripe and RevenueCat providers. (part 7 of 7) Implements tRPC routers and handlers for user account management, tags and tag merging, outbound webhooks, and subscription lifecycle/billing synchronization.
+
+_This module does not fit in one model call, so it was read in 7 parts and their summaries were combined without a further model call._
+
+## Key files
+- `packages/trpc/models/bookmarks.ts`: Defines domain logic for accessing, validating ownership of, formatting, and manipulating bookmarks and their attached assets and tags.
+- `packages/trpc/models/assets.ts`: Implements asset query and attachment management, handling pagination by size or date and enforcing ownership.
+- `packages/trpc/models/feeds.service.ts`: Encapsulates RSS feed business logic, user quotas, and authorization.
+- `packages/trpc/models/feeds.repo.ts`: Provides Drizzle ORM database operations for RSS feed records.
+- `packages/trpc/models/backups.ts`: Manages backup creation, background worker job triggers, asset cleanup, and retention filtering.
+- `packages/trpc/lib/ruleEngine.ts`: Evaluates user-defined automation rules and conditions on bookmark events and executes corresponding actions.
+- `packages/trpc/lib/search.ts`: Translates search matchers into balanced SQL expressions for querying bookmarks.
+- `packages/trpc/lib/searchRanking.ts`: Implements Reciprocal Rank Fusion (RRF) to merge full-text and semantic/vector search results.
+- `packages/trpc/lib/actor.ts`: Defines actor context types, ownership assertions, and branded types for compile-time authorization enforcement.
+- `packages/trpc/lib/rateLimit.ts`: Provides tRPC middleware for IP- and user-based request rate limiting.
+- `packages/trpc/lib/revenueCat.ts`: Parses RevenueCat webhook events and computes customer in-app subscription state and quota synchronization.
+- `packages/trpc/lib/subscriptionEntitlements.ts`: Recomputes user tier quotas across Stripe and in-app subscription providers.
+- `packages/trpc/index.ts`: Defines tRPC initialization, context interfaces (Context, AuthedContext), base router/procedure helpers, OpenTelemetry tracing, rate-limiting, and API key scope enforcement middleware.
+- `packages/trpc/auth.ts`: Handles API key generation/authentication, password hashing (bcrypt), verification, and legacy salted hash migration.
+- `packages/trpc/email.ts`: Provides email transport wrapper using nodemailer with OpenTelemetry tracing for verifications, invitations, and password resets.
+- `packages/trpc/models/highlights.repo.ts`: Database access layer for bookmark text highlights, pagination with cursor v2, and search queries across bookmarks.
+- `packages/trpc/models/highlights.service.ts`: Service layer handling actor-based authorization and ownership checks for highlight operations.
+- `packages/trpc/models/importSessions.repo.ts`: Repository for managing batch bookmark import sessions, staging bookmarks, status tracking, and archiving completed imports.
+- `packages/trpc/models/importSessions.service.ts`: Service handling import session lifecycle (staging, finalization, pausing, resuming, and stats aggregation).
+- `packages/trpc/models/listInvitations.ts`: Domain model for sending, accepting, declining, and revoking collaboration invitations on manual bookmark lists.
+- `packages/trpc/models/lists.ts`: Domain models for manual and smart lists, access control, collaborator resolution, parent list hierarchy, and public/RSS list sharing.
+- `packages/trpc/models/rules.ts`: Domain model for automated rule engine configurations (event triggers, conditions, and actions like tagging or list assignment).
+- `packages/trpc/models/tags.ts`: Domain model for managing bookmark tags, counting usage (including AI vs. human origin), deleting unused tags, and merging tags.
+- `packages/trpc/models/users.ts`: User model handling account creation, settings (auto-tagging, summarization preferences), credential verification, quotas, and deletion.
+- `packages/trpc/models/webhooks.repo.ts`: Repository for user webhook registration and management in the database.
+- `packages/trpc/models/webhooks.service.ts`: Service handling webhook CRUD and dispatching webhook trigger events to background worker queues.
+- `packages/trpc/routers/_app.ts`: Root tRPC router aggregating all sub-routers (bookmarks, apiKeys, admin, assets, backups, feeds, tags, users, etc.) and exporting AppRouter.
+- `packages/trpc/routers/admin.ts`: Administrative procedures for inspecting system/queue metrics and initiating bulk background jobs (recrawling, AI tagging/inference, embeddings generation, search indexing).
+- `packages/trpc/routers/apiKeys.ts`: Procedures for creating, listing, regenerating, revoking, validating, and exchanging scoped API keys.
+- `packages/trpc/routers/assets.ts`: Procedures for listing asset metadata and attaching, replacing, or detaching assets from bookmarks.
+- `packages/trpc/routers/backups.ts`: Procedures for listing, querying, deleting, and triggering automated background backups.
+- `packages/trpc/stats.ts`: Prometheus metric collectors tracking queue job counts, users, subscription states, asset storage volume, bookmark counts, and tRPC request/error metrics.
+- `packages/trpc/testUtils.ts`: Testing harness offering caller factories, in-memory DB setups, and queue mocks for automated tests.
+- `packages/trpc/routers/bookmarks.ts`: Defines bookmarksAppRouter and middleware for creating, retrieving, updating, deleting, and searching bookmarks, with integration to rate limiting, vector store clients, AI summary prompts, and background queueing.
+- `packages/trpc/routers/feeds.ts`: Defines feedsAppRouter for managing user RSS feeds (create, update, get, list, delete, and enqueueing fetchNow operations via FeedQueue).
+- `packages/trpc/routers/highlights.ts`: Defines highlightsAppRouter for creating, reading, updating, deleting, and searching text highlights on bookmarks.
+- `packages/trpc/routers/config.ts`: Defines configAppRouter providing a public endpoint for client configuration retrieval.
+- `packages/trpc/routers/bookmarks.test.ts`: Vitest integration tests covering bookmark creation, markdown/text extraction, API key scoped permissions, and queue triggers.
+- `packages/trpc/routers/feeds.test.ts`: Vitest integration tests for RSS feed CRUD operations, ownership access control, and feed limits.
+- `packages/trpc/routers/highlights.test.ts`: Vitest integration tests for highlight CRUD operations, pagination, and multi-user privacy checks.
+- `packages/trpc/routers/importSessions.test.ts`: Vitest integration tests for creating import sessions, staging bookmark imports, and tracking crawl/tagging status stats.
+- `packages/trpc/routers/importSessions.ts`: Router for managing bookmark import sessions, bookmark staging, pausing, resuming, and results retrieval.
+- `packages/trpc/routers/invites.ts`: Router for creating, listing, retrieving, accepting, revoking, and resending user registration invitations.
+- `packages/trpc/routers/lists.ts`: Router and permission middlewares for bookmark lists (manual and smart lists), RSS tokens, collaborator sharing, and smart query previews.
+- `packages/trpc/routers/problemReports.ts`: Router for collecting and dispatching user diagnostics and problem report emails.
+- `packages/trpc/routers/prompts.ts`: Router for CRUD operations on user-specific custom prompts applied to AI workflows such as summaries.
+- `packages/trpc/routers/publicBookmarks.ts`: Router for public, unauthenticated queries of list metadata and paginated bookmark contents.
+- `packages/trpc/routers/rules.ts`: Router for creating, updating, listing, and deleting rule-engine automation rules on bookmark events.
+- `packages/trpc/routers/sharedLists.test.ts`: Integration tests for list sharing, collaborator invitations, roles, and collaborator removal behavior.
+- `packages/trpc/routers/subscriptions.revenueCat.test.ts`: Integration tests for RevenueCat in-app subscription webhooks, quota adjustments, and user tier transitions.
+- `packages/trpc/routers/subscriptions.test.ts`: Integration tests for subscription status querying, manual tier overrides, and Stripe subscription lifecycle handling.
+- `packages/trpc/routers/subscriptions.ts`: Manages Stripe and RevenueCat subscription syncing, webhook handling, and quota adjustments
+- `packages/trpc/routers/tags.ts`: Defines the tRPC router for creating, reading, updating, deleting, merging, and listing bookmark tags
+- `packages/trpc/routers/users.ts`: Defines the tRPC router for user profile operations, user settings, admin user management, and account deletion
+- `packages/trpc/routers/webhooks.ts`: Defines the tRPC router for managing user-configured outbound event notification webhooks
+
+## Public interface
+- Actor
+- actorFromContext(ctx)
+- assertOwnership(actor, resourceUserId, opts)
+- authorize(resource, check)
+- mapDBAssetTypeToUserType(assetType)
+- mapSchemaAssetTypeToDB(assetType)
+- createEventLogMiddleware(name)
+- buildImpersonatingAuthedContext(userId, db)
+- getPreferredLinkPreview(signals)
+- createRateLimitMiddleware(config)
+- emitRateLimitedEvent(eventName, dedupKey, windowMs, fields)
+- computeInAppSubscriptionState(customer, opts)
+- fetchRevenueCatCustomer(appUserId)
+- syncRevenueCatDataToDatabase(userId, db)
+- RuleEngine
+- RuleEngine.forBookmark(ctx, bookmarkId)
+- RuleEngine.triggerOnEvent(userId, bookmarkId, events, opts, db)
+- getBookmarksConditionFromMatcher(ctx, matcher, visitedListIds)
+- reciprocalRankFusion(resultLists, rankConstant)
+- isPaidStatus(status)
+- applyUserTierQuotas(trx, userId)
+- createTracingMiddleware()
+- addTracingAttributes(attributes)
+- verifyTurnstileToken(token, remoteIp)
+- Asset
+- Backup
+- BareBookmark
+- Bookmark
+- FeedsRepo
+- FeedsService
+- Context
+- AuthedContext
+- RequestAuth
+- router
+- procedure
+- publicProcedure
+- authedProcedure
+- sessionProcedure
+- createScopedAuthedProcedure
+- createAdminScopedProcedure
+- createCallerFactory
+- createRateLimitMiddleware
+- createEventLogMiddleware
+- emitRateLimitedEvent
+- generateApiKey
+- regenerateApiKey
+- authenticateApiKey
+- hashPassword
+- verifyPasswordHash
+- verifyUserPassword
+- setUserPassword
+- validatePassword
+- hasPassword
+- CREDENTIAL_PROVIDER_ID
+- sendVerificationEmail
+- sendInviteEmail
+- sendPasswordResetEmail
+- sendListInvitationEmail
+- HighlightsRepo
+- HighlightsService
+- ImportSessionsRepo
+- ImportSessionsService
+- List
+- ListInvitation
+- RuleEngineRuleModel
+- Tag
+- User
+- WebhooksRepo
+- WebhooksService
+- appRouter
+- AppRouter
+- adminAppRouter
+- apiKeysAppRouter
+- assetsAppRouter
+- backupsAppRouter
+- getApiCaller
+- getApiKeyCallerForPlainKey
+- buildTestContext
+- defaultBeforeEach
+- bookmarksAppRouter
+- ensureBookmarkOwnership
+- ensureBookmarkAccess
+- createSemanticSearchRateLimitMiddleware
+- feedsAppRouter
+- highlightsAppRouter
+- configAppRouter
+- importSessionsRouter
+- invitesAppRouter
+- listsAppRouter
+- ensureListAtLeastViewer
+- ensureListAtLeastEditor
+- ensureListAtLeastOwner
+- ensureInvitationAccess
+- problemReportsAppRouter
+- promptsAppRouter
+- ensurePromptOwnership
+- publicBookmarks
+- rulesAppRouter
+- lists.create
+- lists.addCollaborator
+- lists.acceptInvitation
+- lists.getCollaborators
+- lists.updateCollaboratorRole
+- lists.removeCollaborator
+- subscriptions.getSubscriptionStatus
+- subscriptions.handleRevenueCatWebhook
+- users.whoami
+- bookmarks.createBookmark
+- syncStripeDataToDatabase
+- ensureTagOwnership
+- tagsAppRouter
+- usersAppRouter
+- webhooksAppRouter
+
+## Dependencies
+- @trpc/server
+- drizzle-orm
+- zod
+- tiny-invariant
+- turndown
+- @opentelemetry/api
+- @karakeep/db
+- @karakeep/db/schema
+- @karakeep/shared-server
+- @karakeep/shared/config
+- @karakeep/shared/ratelimiting
+- @karakeep/shared/signedTokens
+- @karakeep/shared/logger
+- @karakeep/shared/queueing
+- @karakeep/shared/types/assets
+- @karakeep/shared/types/backups
+- @karakeep/shared/types/bookmarks
+- @karakeep/shared/types/feeds
+- @karakeep/shared/types/rules
+- @karakeep/shared/types/search
+- @karakeep/shared/utils/assetUtils
+- @karakeep/shared/utils/bookmarkUtils
+- @karakeep/shared/utils/htmlUtils
+- @karakeep/shared/utils/relativeDateUtils
+- superjson
+- @karakeep/shared
+- bcryptjs
+- nodemailer
+- @karakeep/shared/plugins
+- @karakeep/shared/search
+- @karakeep/shared/types/admin
+- @karakeep/shared/types/apiKeys
+- @karakeep/shared/utils/url
+- @karakeep/shared/vectorStore
+- prom-client
+- vitest
+- @karakeep/shared/inference
+- @karakeep/shared/prompts.server
+- @karakeep/shared/searchQueryParser
+- @karakeep/shared/types/config
+- @karakeep/shared/types/highlights
+- @karakeep/shared/types/importSessions
+- @karakeep/shared/types/lists
+- @karakeep/shared/types/pagination
+- @karakeep/shared/types/tags
+- @karakeep/shared/utils/reading-progress-dom
+- @karakeep/shared/utils/tag
+- crypto
+- @karakeep/shared/types/users
+- @karakeep/shared/types/problemReports
+- @karakeep/shared/types/prompts
+- stripe
+- @karakeep/shared/types/webhooks
+
+## AI touchpoints [AI]
+- `packages/trpc/routers/bookmarks.ts`
+- `packages/trpc/routers/prompts.test.ts`
+- `packages/trpc/routers/prompts.ts`
+- `packages/trpc/stats.ts`
+- `packages/trpc/models/bookmarks.ts`
+- `packages/trpc/lib/searchRanking.ts`
+- `packages/trpc/models/tags.ts`
+- `packages/trpc/models/users.ts`
+- `packages/trpc/routers/admin.ts`
+- `packages/trpc/routers/bookmarks.test.ts`
+
+## Open questions
+- How are individual prompt templates defined and executed in promptsAppRouter?
+- What specific ranking weights and hybrid fusion algorithms are implemented in the full bookmarks.search router procedure?
+- The implementation file for importSessions router (packages/trpc/routers/importSessions.ts) was not provided in this file set, only its test suite.
+- The full implementations of search and summarization procedures in packages/trpc/routers/bookmarks.ts were truncated.

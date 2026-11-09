@@ -1,0 +1,14 @@
+stack: node
+packageManager: pnpm
+commit: d1514c25302fa5794795a4edfa9227939cffdc0f
+verifiedAt: 2026-11-09T11:04:44.618Z
+commands:
+  install: pnpm install --frozen-lockfile
+  build: pnpm run build
+  analyze: pnpm run lint
+  test: pnpm run test
+status:
+  install: none
+  build: none
+  analyze: none
+  test: none

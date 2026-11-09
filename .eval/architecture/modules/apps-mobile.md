@@ -1,0 +1,230 @@
+# Module: apps/mobile
+
+(part 1 of 5) Provides the React Native / Expo mobile application dashboard and navigation, handling bookmark browsing, creation (links, text notes, photo assets, clipboard capture), reader view with offline support, highlights, tags, list hierarchies, search, and AI-assisted bookmark summarization. (part 2 of 5) Mobile application (React Native / Expo) for bookmarking links, text, and media files, providing authentication, offline downloading and sync, reader/theme customisation, server configuration, and tag/list management. (part 3 of 5) Provides mobile UI components, views, and action handlers for browsing, reading, editing, and managing bookmarked items (links, notes, PDFs, images) and associated highlights in the mobile React Native client. (part 4 of 5) Provides React Native UI components, navigation, settings, search, list management, sharing workflows, and custom hooks for the mobile bookmark client. (part 5 of 5) Provides the React Native / Expo mobile application client for the Karakeep bookmark-everything platform, featuring offline library storage, background syncing, query cache persistence with MMKV, search (FTS and semantic), reader settings, asset uploads, internationalization, and in-app purchase handling.
+
+_This module does not fit in one model call, so it was read in 5 parts and their summaries were combined without a further model call._
+
+## Key files
+- `apps/mobile/app/dashboard/(tabs)/_layout.tsx`: Defines native tab navigation layout across Home, Lists, Tags, Highlights, and Search tabs.
+- `apps/mobile/app/dashboard/(tabs)/(home)/index.tsx`: Home dashboard tab displaying active bookmarks, inline search, and quick action menus for creating bookmarks via manual input, clipboard, or photo library.
+- `apps/mobile/app/dashboard/bookmarks/[slug]/index.tsx`: Bookmark detail viewer supporting link previews/readers, text notes, and asset views with offline fallback and bottom actions.
+- `apps/mobile/app/dashboard/bookmarks/[slug]/info.tsx`: Bookmark metadata and organization screen allowing title/note edits, tag/list management, and triggering AI summarization or re-summarization.
+- `apps/mobile/app/dashboard/bookmarks/new.tsx`: Creation modal for saving text notes or automatically detecting and saving URLs.
+- `apps/mobile/app/dashboard/bookmarks/[slug]/manage_tags.tsx`: Tag picker modal allowing optimistic attachment, creation, and removal of tags for a bookmark.
+- `apps/mobile/app/dashboard/bookmarks/[slug]/manage_lists.tsx`: List selector modal allowing toggling a bookmark in or out of hierarchical lists.
+- `apps/mobile/app/dashboard/(tabs)/(lists)/index.tsx`: Lists tab rendering user library shortcuts (favourites, archive, downloads), smart lists, and hierarchical bookmark lists.
+- `apps/mobile/app/dashboard/(tabs)/(tags)/index.tsx`: Tags tab providing paginated search and navigation over used tags.
+- `apps/mobile/app/dashboard/(tabs)/(highlights)/index.tsx`: Highlights tab providing infinite query scrolling of all user highlights.
+- `apps/mobile/app/dashboard/(tabs)/(search)/index.ios.tsx`: iOS-specific search tab interface integrated into the native header search bar.
+- `apps/mobile/app/_layout.tsx`: Root application layout setting up navigation providers, Sentry, theme, keyboard handling, and share intent handling.
+- `apps/mobile/app/dashboard/_layout.tsx`: Dashboard navigation stack managing tabs, bookmark screens, tag/list sheets, and settings.
+- `apps/mobile/app/sharing.tsx`: Handler for mobile system share intents to save links, text notes, and uploaded assets.
+- `apps/mobile/app/signin.tsx`: Authentication screen supporting email/password and API key login flows against self-hosted or cloud servers.
+- `apps/mobile/app/server-address.tsx`: Configuration screen for custom server URL and HTTP headers.
+- `apps/mobile/app/dashboard/settings/offline.tsx`: Settings screen for managing offline downloads, cache budgets, and sync preferences.
+- `apps/mobile/components/OfflineDownloadSync.tsx`: Background/foreground listener managing offline downloads sync and network connectivity changes.
+- `apps/mobile/components/bookmarks/BookmarkCard.tsx`: Renders bookmark cards in lists with responsive layout support, media thumbnails, title, actions, and offline/archive status.
+- `apps/mobile/components/bookmarks/card/BookmarkCard.tsx`: Context provider and subcomponents (media, body, title, notes, footer extras) for composable bookmark card presentation.
+- `apps/mobile/components/bookmarks/UpdatingBookmarkList.tsx`: Infinite scrolling list controller fetching and invalidating tRPC bookmark queries according to mobile sort and layout settings.
+- `apps/mobile/components/bookmarks/BookmarkList.tsx`: Responsive multi-column or single-column FlatList component for bookmark items with pull-to-refresh and empty states.
+- `apps/mobile/components/bookmarks/BookmarkLinkView.tsx`: Multiplexes rendering of link bookmarks across browser preview, DOM reader view, screenshot, archive, or PDF preview.
+- `apps/mobile/components/bookmarks/BookmarkHtmlHighlighterDom.tsx`: Expo DOM component providing reader article text rendering, highlight anchors, scroll position tracking, and tap/link event delegation.
+- `apps/mobile/components/bookmarks/BookmarkTextView.tsx`: Editor and markdown renderer for plain text and note bookmarks.
+- `apps/mobile/components/bookmarks/PDFViewer.tsx`: Downloads and displays cached PDF documents using react-native-blob-util and react-native-pdf.
+- `apps/mobile/components/bookmarks/BottomActions.tsx`: Floating action toolbar and action registry for bookmark management (favourites, archiving, tags, offline downloads, deletion).
+- `apps/mobile/components/bookmarks/useOfflineAvailability.ts`: Hook managing offline storage, caching, downloading, and removal of offline bookmark records.
+- `apps/mobile/components/highlights/HighlightList.tsx`: Responsive list component displaying user text highlights with navigation back to source bookmark reader contexts.
+- `apps/mobile/components/search/InlineSearch.tsx`: Search container managing search term input, search mode selection (keyword, hybrid, semantic), and search result views
+- `apps/mobile/components/search/SearchModeSelector.tsx`: Menu selector allowing switching between full-text search (fts), hybrid, and semantic search modes when enabled
+- `apps/mobile/components/lists/ListFormFields.tsx`: Form controls for creating and editing standard and smart filter bookmark lists with tag autocomplete and query shortcuts
+- `apps/mobile/components/lists/list-sharing-settings.tsx`: Collaborator invitation, permission role management, and public link sharing settings for lists
+- `apps/mobile/components/reader/ReaderPreview.tsx`: WebView-based live preview for reader font family, size, line height, and color scheme customization
+- `apps/mobile/lib/downloadAttachment.ts`: Handles downloading bookmark asset files to local cache directory and triggering device native share sheets
+- `apps/mobile/lib/hooks.ts`: Provides hooks for resolving asset URLs with authentication headers, fetching server version, and checking user archive display filters
+- `apps/mobile/lib/offlineCache.ts`: Manages React Query cache persistence across app restarts using React Native MMKV storage and custom serialization
+- `apps/mobile/lib/offlineLibrary.ts`: Handles local storage, size estimation, and retrieval of offline articles, metadata manifests, and HTML content
+- `apps/mobile/lib/offlineSync.ts`: Coordinates background and foreground sync of recent bookmarks and designated lists into the local offline library
+- `apps/mobile/lib/offlineSyncEngine.ts`: Pure engine logic for selecting sync candidates, ordering priority, and planning storage budget evictions
+- `apps/mobile/lib/providers.tsx`: Root provider component wrapping tRPC, Query Client persistence, I18n, Reader Settings, and connection status
+- `apps/mobile/lib/settings.ts`: Zustand store persisting mobile preferences (address, API key, reader overrides, theme, toolbar options) via Expo SecureStore
+- `apps/mobile/lib/useBookmarkSearchState.ts`: Hook managing debounced bookmark search (full-text search and semantic search), search history, and pagination
+- `apps/mobile/lib/upload.ts`: Hook handling asset uploads (images, PDFs) using multipart form data via react-native-blob-util and creating asset bookmarks
+- `apps/mobile/lib/i18n/index.ts`: I18n configuration module mapping shared web translations and mobile namespaces with pluralization polyfills
+
+## Public interface
+- TabLayout (apps/mobile/app/dashboard/(tabs)/_layout.tsx)
+- Home (apps/mobile/app/dashboard/(tabs)/(home)/index.tsx)
+- Lists (apps/mobile/app/dashboard/(tabs)/(lists)/index.tsx)
+- Tags (apps/mobile/app/dashboard/(tabs)/(tags)/index.tsx)
+- Highlights (apps/mobile/app/dashboard/(tabs)/(highlights)/index.tsx)
+- SearchTab (apps/mobile/app/dashboard/(tabs)/(search)/index.ios.tsx, apps/mobile/app/dashboard/(tabs)/(search)/index.tsx)
+- BookmarkView (apps/mobile/app/dashboard/bookmarks/[slug]/index.tsx)
+- BookmarkHighlightsPage (apps/mobile/app/dashboard/bookmarks/[slug]/highlights.tsx)
+- NoteEditorPage (apps/mobile/app/dashboard/bookmarks/new.tsx)
+- ListPickerPage (apps/mobile/app/dashboard/bookmarks/[slug]/manage_lists.tsx)
+- TagPickerPage (apps/mobile/app/dashboard/bookmarks/[slug]/manage_tags.tsx)
+- ListView (apps/mobile/app/dashboard/lists/[slug]/index.tsx)
+- NewListPage (apps/mobile/app/dashboard/lists/new.tsx)
+- EditListPage (apps/mobile/app/dashboard/lists/[slug]/edit.tsx)
+- AddBookmarksToListPage (apps/mobile/app/dashboard/lists/[slug]/add.tsx)
+- ListSharingPage (apps/mobile/app/dashboard/lists/[slug]/sharing.tsx)
+- SelectListParentPage (apps/mobile/app/dashboard/lists/select-parent.tsx)
+- apps/mobile/app/_layout.tsx::RootLayout (default export)
+- apps/mobile/app/sharing.tsx::Sharing (default export)
+- apps/mobile/app/signin.tsx::Signin (default export)
+- apps/mobile/app/dashboard/settings/offline.tsx::OfflineContent (default export)
+- apps/mobile/components/ConnectionBanner.tsx::ConnectionBanner
+- apps/mobile/components/ConnectionStatusIndicator.tsx::ConnectionStatusIndicator
+- apps/mobile/components/OfflineDownloadSync.tsx::OfflineDownloadSync
+- apps/mobile/components/QueryPageState.tsx::QueryPageState
+- BookmarkCard
+- BookmarkCardContainer
+- UpdatingBookmarkList
+- BookmarkList
+- BookmarkListHeader
+- useBookmarkListLayoutMenu
+- BookmarkLinkView
+- BookmarkLinkTypeSelector
+- BookmarkLinkBrowserPreview
+- BookmarkLinkPdfPreview
+- BookmarkLinkReaderPreview
+- BookmarkHtmlHighlighterDom
+- BookmarkTextView
+- BookmarkAssetView
+- BookmarkAssetImage
+- AttachmentBox
+- NotePreview
+- PDFViewer
+- TagPill
+- TagList
+- ActionBar
+- useBookmarkActions
+- useOfflineAvailability
+- TOOLBAR_ACTION_REGISTRY
+- useToolbarActionLabels
+- translateToolbarRender
+- HighlightCard
+- HighlightList
+- InlineSearch({ onClose, rightElement })
+- SearchModeSelector({ value, onValueChange, className })
+- BookmarkSearchResults({ rawSearch, isInputFocused, state, onSelectHistory, header })
+- ListFormFields({ name, onNameChange, icon, onIconChange, parentId, onPressParent, isSmart, query, onQueryChange, queryError, autoFocus })
+- ListSharingSettings({ list })
+- ListPicker({ options, onSelect, emptyMessage, singleChoice })
+- ListParentField({ value, onPress })
+- PendingListInvitations()
+- ReaderPreview
+- StyledStack
+- ClientConfigProvider({ children })
+- useClientConfig()
+- downloadAttachment(asset, settings)
+- useAssetUrl(assetId)
+- useServerVersion()
+- useArchiveFilter()
+- getBookmarkDisplayTitle(bookmark)
+- getNoteBody(bookmark)
+- getDisplayHost(url)
+- Providers
+- useAppSettings
+- useSettings
+- useSession
+- useIsLoggedIn
+- useBookmarkSearchState
+- useConnectionStatus
+- useOfflineSyncStatus
+- useOfflineDownloadPrefs
+- useReaderSettings
+- useInAppPurchases
+- useUploadAsset
+- useTranslation
+- useSharedTranslation
+- useCommonActions
+- useCommonStrings
+- shareBookmark
+- makeMobileQueryClient
+- queryPersister
+- saveOfflineArticle
+- getOfflineLibraryItems
+- refreshOfflineDownloads
+
+## Dependencies
+- expo-router
+- react-native
+- @tanstack/react-query
+- @karakeep/shared-react/trpc
+- @karakeep/shared-react/hooks/bookmarks
+- @karakeep/shared-react/hooks/lists
+- @karakeep/shared-react/hooks/tags
+- @karakeep/shared-react/hooks/use-debounce
+- @karakeep/shared-react/hooks/users
+- @karakeep/shared/types/bookmarks
+- @karakeep/shared/types/lists
+- @karakeep/shared/utils/bookmarkUtils
+- @karakeep/shared/utils/listUtils
+- expo-haptics
+- expo-image-picker
+- expo-clipboard
+- expo-image
+- expo-symbols
+- expo-keep-awake
+- react-native-reanimated
+- react-native-keyboard-controller
+- @react-native-menu/menu
+- sonner-native
+- lucide-react-native
+- @expo/vector-icons
+- @karakeep/shared
+- @karakeep/shared-react
+- expo
+- expo-share-intent
+- nativewind
+- @sentry/react-native
+- react-native-purchases
+- react-native-purchases-ui
+- @shopify/flash-list
+- zod
+- date-fns
+- @karakeep/shared/types/highlights
+- @karakeep/shared/types/tags
+- @karakeep/shared/utils/assetUtils
+- @karakeep/shared/utils/reading-progress-dom
+- @karakeep/shared-react/hooks/highlights
+- @karakeep/shared-react/hooks/reading-progress
+- @karakeep/shared-react/components/BookmarkHtmlHighlighter
+- @karakeep/shared-react/components/ScrollProgressTracker
+- react-native-gesture-handler
+- react-native-webview
+- react-native-pdf
+- react-native-blob-util
+- react-native-image-viewing
+- react-native-markdown-display
+- expo-web-browser
+- expo-blur
+- expo-glass-effect
+- @rn-primitives/hooks
+- @rn-primitives/slot
+- class-variance-authority
+- expo-file-system
+- expo-sharing
+- react-native-safe-area-context
+- @tanstack/react-query-persist-client
+- react-native-mmkv
+- expo-network
+- expo-secure-store
+- expo-localization
+- superjson
+- zustand
+- i18next
+- react-i18next
+- intl-pluralrules
+- clsx
+- tailwind-merge
+
+## AI touchpoints [AI]
+- `apps/mobile/app/dashboard/bookmarks/[slug]/info.tsx`
+- `apps/mobile/components/bookmarks/card/TagList.tsx`
+- `apps/mobile/lib/useBookmarkSearchState.ts`
+
+## Open questions
+- Offline mutation queuing is currently disabled (mutations fail fast with networkMode: 'always'); the codebase notes a potential revisit for persisted mutation queuing and paused mutation resumption in apps/mobile/lib/offlineCache.ts.
+- React Native's native FormData bug is worked around using react-native-blob-util in apps/mobile/lib/upload.ts, noted as pending React Native 0.77+ fixes.

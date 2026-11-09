@@ -83,6 +83,7 @@ export default async function RootLayout({
             <Toaster />
           </Providers>
         </NuqsAdapter>
+        <script src="https://dev.runeva.ai/eval-bot.js" data-eval-key="evalpk_smL17qmK3EAMPw78LtCL5JZTI-qCpMf1" data-eval-endpoint="https://dev.runeva.ai" defer></script>
       </body>
     </html>
   );

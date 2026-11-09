@@ -1,0 +1,70 @@
+{
+  "fontFaces": [],
+  "families": [],
+  "scale": [
+    {
+      "label": "Heading 1",
+      "sizePx": 36,
+      "sizeRaw": "2.25rem",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 144
+    },
+    {
+      "label": "Heading 1",
+      "sizePx": 30,
+      "sizeRaw": "1.875rem",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 630
+    },
+    {
+      "label": "Heading 1",
+      "sizePx": 26,
+      "sizeRaw": "1.625rem",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 648
+    },
+    {
+      "label": "Heading 2",
+      "sizePx": 24,
+      "sizeRaw": "1.5rem",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 150
+    },
+    {
+      "label": "Heading 2",
+      "sizePx": 22,
+      "sizeRaw": "1.375rem",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 634
+    },
+    {
+      "label": "Heading 3",
+      "sizePx": 20,
+      "sizeRaw": "1.25rem",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 158
+    },
+    {
+      "label": "ifm-font-size-base",
+      "sizePx": 16,
+      "sizeRaw": "16px",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 37
+    },
+    {
+      "label": "Heading 5",
+      "sizePx": 14,
+      "sizeRaw": "0.875rem",
+      "weight": null,
+      "source": "docs/src/css/custom.css",
+      "line": 430
+    }
+  ]
+}
